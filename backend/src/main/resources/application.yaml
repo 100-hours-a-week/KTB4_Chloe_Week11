@@ -17,3 +17,12 @@ spring:
 file:
   profile-upload-dir: ${user.home}/dev-uploads/ProfileImage
   post-upload-dir: ${user.home}/dev-uploads/PostImage
+
+cloud:
+  aws:
+    credentials:
+      access-key: ${AWS_ACCESS_KEY_ID}
+      secret-key: ${AWS_SECRET_ACCESS_KEY}
+    region: ${AWS_S3_REGION}
+    s3:
+      bucket: ${AWS_S3_BUCKET}

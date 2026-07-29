@@ -3,83 +3,78 @@ package homework.week4.FileUpload;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.UUID;
 
 @Component
 public class FileStorage implements FileStorageService {
 
-    @Value("${file.profile-upload-dir}")
-    private String profileUploadDir;
+    @Value("${cloud.aws.credentials.access-key}")
+    private String accessKey;
 
-    @Value("${file.post-upload-dir}")
-    private String postUploadDir;
+    @Value("${cloud.aws.credentials.secret-key}")
+    private String secretKey;
+
+    @Value("${cloud.aws.region}")
+    private String region;
+
+    @Value("${cloud.aws.s3.bucket}")
+    private String bucket;
+
+    private S3Client s3Client;
+
+    private S3Client getS3Client() {
+        if (s3Client == null) {
+            s3Client = S3Client.builder()
+                    .region(Region.of(region))
+                    .credentialsProvider(StaticCredentialsProvider.create(
+                            AwsBasicCredentials.create(accessKey, secretKey)))
+                    .build();
+        }
+        return s3Client;
+    }
 
     @Override
     public String storeProfileImage(MultipartFile file) {
-        if (file != null && !file.isEmpty()) {
-
-            //파일의 원본명 가져옴
-            String originalFilename = file.getOriginalFilename();
-
-            String extension = extractExtension(originalFilename); // ".jpg" 등만 추출
-            String storedFilename = UUID.randomUUID() + extension; // 예측 불가능한 이름으로 저장
-
-
-            Path directoryPath = Paths.get(profileUploadDir).toAbsolutePath().normalize();
-            Path savePath = directoryPath.resolve(storedFilename).normalize();
-
-            // 최종 경로가 이미지 저장 폴더 안에 있는지 검증
-            if (!savePath.startsWith(directoryPath)) {
-                // 저장 경로가 이상한건 서버에서 확인해주면 됨 -> 사용자 한테는 500으로 에러 응답 감
-                throw new IllegalStateException("저장 경로가 업로드 디렉토리를 벗어났습니다.");
-            }
-
-            try {
-                Files.createDirectories(directoryPath); //폴더가 없으면 새로 생성
-                file.transferTo(savePath.toFile());
-            } catch (IOException e) {
-                throw new RuntimeException("파일 저장에 실패했습니다.", e);
-            }
-
-            return storedFilename; // 전체 경로가 아니라 파일명(또는 상대경로)만 반환
-        }
-        return null;
+        return uploadToS3(file, "profile");
     }
 
-    public String storePostImage(MultipartFile file){
-        if (file != null && !file.isEmpty()) {
+    @Override
+    public String storePostImage(MultipartFile file) {
+        return uploadToS3(file, "post");
+    }
 
-            //파일의 원본명 가져옴
-            String originalFilename = file.getOriginalFilename();
-
-            String extension = extractExtension(originalFilename); // ".jpg" 등만 추출
-            String storedFilename = UUID.randomUUID() + extension; // 예측 불가능한 이름으로 저장
-
-
-            Path directoryPath = Paths.get(postUploadDir).toAbsolutePath().normalize();
-            Path savePath = directoryPath.resolve(storedFilename).normalize();
-
-            // 최종 경로가 이미지 저장 폴더 안에 있는지 검증
-            if (!savePath.startsWith(directoryPath)) {
-                // 저장 경로가 이상한건 서버에서 확인해주면 됨 -> 사용자 한테는 500으로 에러 응답 감
-                throw new IllegalStateException("저장 경로가 업로드 디렉토리를 벗어났습니다.");
-            }
-
-            try {
-                Files.createDirectories(directoryPath);
-                file.transferTo(savePath.toFile());
-            } catch (IOException e) {
-                throw new RuntimeException("파일 저장에 실패했습니다.", e);
-            }
-
-            return storedFilename; // 전체 경로가 아니라 파일명(또는 상대경로)만 반환
+    private String uploadToS3(MultipartFile file, String folder) {
+        if (file == null || file.isEmpty()) {
+            return null;
         }
-        return null;
+
+        String originalFilename = file.getOriginalFilename();
+        String extension = extractExtension(originalFilename);
+        String storedFilename = folder + "/" + UUID.randomUUID() + extension;
+
+        try {
+            PutObjectRequest request = PutObjectRequest.builder()
+                    .bucket(bucket)
+                    .key(storedFilename)
+                    .contentType(file.getContentType())
+                    .build();
+
+            getS3Client().putObject(request, RequestBody.fromInputStream(
+                    file.getInputStream(), file.getSize()));
+
+        } catch (IOException e) {
+            throw new RuntimeException("S3 파일 업로드에 실패했습니다.", e);
+        }
+
+        return String.format("https://%s.s3.%s.amazonaws.com/%s", bucket, region, storedFilename);
     }
 
     private String extractExtension(String filename) {
