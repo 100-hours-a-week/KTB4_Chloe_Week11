@@ -22,10 +22,10 @@ async function request(path, method, data = null) {
     ...(data !== null && { body: isFormData ? data : JSON.stringify(data) }),
   });
 
-  return handleResponse(response);
+  return handleResponse(response,path);
 }
 
-async function handleResponse(response) {
+async function handleResponse(response,path) {
   const { status } = response;
 
   if (status === 200 || status === 201) {
@@ -40,7 +40,11 @@ async function handleResponse(response) {
 
   switch (status) {
     case 401:
-      window.dispatchEvent(new Event('auth:unauthorized'));
+      if (!needsAuth(path)) {
+        console.error('로그인&회원가입 실패', message)
+      } else {
+        window.dispatchEvent(new Event('auth:unauthorized'));
+      }
       break;
     case 403:
       console.error('인가 실패:', message);
