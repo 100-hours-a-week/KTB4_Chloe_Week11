@@ -8,6 +8,7 @@ import './PostDetailMain.css';
 function PostDetailMain({
   post,
   isLiked,
+  isLiking,
   likeCount,
   onEdit,
   onRequestDelete,
@@ -41,6 +42,7 @@ function PostDetailMain({
 
       <PostEngagementRow
         liked={isLiked}
+        isLiking={isLiking}
         likeCount={likeCount}
         onToggleLike={onToggleLike}
         onReport={onReport}

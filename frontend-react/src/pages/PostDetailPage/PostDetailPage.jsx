@@ -9,6 +9,7 @@ function PostDetailPage() {
   const {
     post,
     isLiked,
+    isLiking,
     likeCount,
     commentCount,
     comments,
@@ -102,6 +103,7 @@ function PostDetailPage() {
     <PostDetailMain
       post={post}
       isLiked={isLiked}
+      isLiking={isLiking}
       likeCount={likeCount}
       onEdit={onEdit}
       onRequestDelete={onRequestDelete}

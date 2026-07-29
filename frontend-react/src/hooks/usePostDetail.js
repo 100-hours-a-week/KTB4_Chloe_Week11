@@ -46,6 +46,8 @@ function usePostDetail(postId) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
 
+  const [isLiking, setIsLiking] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -81,10 +83,19 @@ function usePostDetail(postId) {
   }, [postId]);
 
   const toggleLike = useCallback(async () => {
-    const result = isLiked ? await unlikePost(postId) : await likePost(postId);
-    setIsLiked((prev) => !prev);
-    setLikeCount(result.data.like_count);
-  }, [isLiked, postId]);
+    if(isLiking) return;
+      setIsLiking(true);
+    try{
+      const result = isLiked ? await unlikePost(postId) : await likePost(postId);
+
+      setIsLiked((prev) => !prev);
+      setLikeCount(result.data.like_count);
+    }catch(error) {
+      console.error(error);
+    }finally {
+      setIsLiking(false);
+    }
+  }, [isLiked,isLiking, postId]);
 
   const deletePostCallback = useCallback(() => deletePost(postId), [postId]);
   const reportPostCallback = useCallback(() => reportPost(postId), [postId]);
@@ -124,6 +135,7 @@ function usePostDetail(postId) {
   return {
     post,
     isLiked,
+    isLiking,
     likeCount,
     commentCount,
     comments,
