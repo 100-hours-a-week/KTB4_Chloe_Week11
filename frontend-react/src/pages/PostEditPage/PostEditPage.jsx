@@ -18,10 +18,14 @@ function PostEditPage() {
   const [initialValues, setInitialValues] = useState(null);
   const [error, setError] = useState(false);
 
+  const [submitting, setSubmitting] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
+
+
       try {
         const result = await getPostForEdit(postId);
         if (!cancelled) setInitialValues(result.data);
@@ -41,6 +45,10 @@ function PostEditPage() {
   }, [postId]);
 
   async function handleSubmit(values) {
+    if (submitting) return;
+
+    setSubmitting(true);
+
     const formData = new FormData();
     formData.append('title', values.title);
     formData.append('content', values.content);
@@ -55,6 +63,8 @@ function PostEditPage() {
       navigate(`/posts/${postId}`);
     } catch (error) {
       console.error(error);
+    }finally{
+      setSubmitting(false);
     }
   }
 
@@ -66,7 +76,7 @@ function PostEditPage() {
     return <p>게시글 정보를 불러오는 중입니다.</p>;
   }
 
-  return <PostForm mode="edit" initialValues={initialValues} onSubmit={handleSubmit} />;
+  return <PostForm mode="edit" initialValues={initialValues} onSubmit={handleSubmit} submitting={submitting}/>;
 }
 
 export default PostEditPage;
