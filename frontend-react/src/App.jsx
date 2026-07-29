@@ -10,12 +10,17 @@ import PostDetailPage from './pages/PostDetailPage/PostDetailPage';
 import ProfileEditPage from './pages/ProfileEditPage/ProfileEditPage';
 import PasswordEditPage from './pages/PasswordEditPage/PasswordEditPage';
 
+import { useAuth } from './context/AuthContext/useAuth';
+
 function UnauthorizedRedirect() {
   const navigate = useNavigate();
+  const { logout } = useAuth();
 
   useEffect(() => {
     function handleUnauthorized() {
+      logout();
       navigate('/login');
+
     }
 
     window.addEventListener('auth:unauthorized', handleUnauthorized);
