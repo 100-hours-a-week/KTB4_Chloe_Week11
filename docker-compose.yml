@@ -10,6 +10,18 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
     restart: always
+    
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: fitmate-nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - frontend
+      - backend
+    restart: always
 
   backend:
     build:
@@ -40,8 +52,6 @@ services:
       args:
         VITE_API_URL: /api
     container_name: fitmate-frontend
-    ports:
-      - "80:80"
     depends_on:
       - backend
     restart: always
