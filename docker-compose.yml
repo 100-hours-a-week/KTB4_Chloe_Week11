@@ -40,8 +40,6 @@ services:
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
     depends_on:
       - mysql
-    volumes:
-      - uploads:/root/dev-uploads
     restart: always
 
   frontend:
@@ -56,7 +54,6 @@ services:
     restart: always
 
 volumes:
-  uploads:
   mysql-data:
 
 
