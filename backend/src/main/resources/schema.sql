@@ -62,6 +62,3 @@ CREATE TABLE IF NOT EXISTS `post_report_history` (
     `user_id`	BIGINT	NOT NULL	COMMENT '사용자 식별 번호',
     `reported_at`	TIMESTAMP	NOT NULL	COMMENT '신고 시각'
 );
-
-CREATE INDEX idx_comments_post_id
-    ON comments (post_id);
