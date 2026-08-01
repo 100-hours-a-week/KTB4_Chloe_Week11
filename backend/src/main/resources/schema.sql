@@ -1,10 +1,10 @@
-CREATE TABLE `likes` (
+CREATE TABLE IF NOT EXISTS `likes` (
     `like_id`	BIGINT	AUTO_INCREMENT PRIMARY KEY	COMMENT '좋아요 식별 번호',
     `post_id`	BIGINT	NOT NULL	COMMENT '게시글 식별 번호',
     `user_id`	BIGINT	NOT NULL	COMMENT '사용자 식별 번호'
 );
 
-CREATE TABLE `comments` (
+CREATE TABLE IF NOT EXISTS `comments` (
     `comment_id`	BIGINT AUTO_INCREMENT PRIMARY KEY	COMMENT '댓글 식별 번호',
     `post_id`	BIGINT	NOT NULL	COMMENT '게시글 식별 번호',
     `user_id`	BIGINT	NOT NULL	COMMENT '사용자 식별 번호',
@@ -18,7 +18,7 @@ CREATE TABLE `comments` (
     `deleted_at`	TIMESTAMP	NULL	COMMENT '댓글 삭제 일시'
 );
 
-CREATE TABLE `posts` (
+CREATE TABLE IF NOT EXISTS `posts` (
     `post_id`	BIGINT	AUTO_INCREMENT PRIMARY KEY	COMMENT '게시글 식별 번호',
     `user_id`	BIGINT	NOT NULL	COMMENT '사용자 식별 번호',
     `title`	VARCHAR(26)	NOT NULL	COMMENT '게시글 제목',
@@ -35,7 +35,7 @@ CREATE TABLE `posts` (
     `deleted_at`	TIMESTAMP	NULL	COMMENT '게시글 삭제 일시'
 );
 
-CREATE TABLE `post_change_history` (
+CREATE TABLE IF NOT EXISTS `post_change_history` (
     `change_id`	BIGINT AUTO_INCREMENT PRIMARY KEY	COMMENT '게시글 수정 이력 식별번호',
     `post_id`	BIGINT	NOT NULL	COMMENT '게시글 식별 번호',
     `changed_at`	TIMESTAMP	NOT NULL	COMMENT '게시글 수정 이력 시각',
@@ -44,7 +44,7 @@ CREATE TABLE `post_change_history` (
     `changed_post_image`	VARCHAR(512)	NULL	COMMENT '게시글 이미지 수정본'
 );
 
-CREATE TABLE `users` (
+CREATE TABLE IF NOT EXISTS `users` (
     `user_id`	BIGINT AUTO_INCREMENT PRIMARY KEY	COMMENT '사용자 식별 번호',
     `email`	VARCHAR(320)	NOT NULL	COMMENT '사용자 이메일',
     `password`	VARCHAR(100)	NOT NULL	COMMENT '사용자 비밀번호',
@@ -56,7 +56,7 @@ CREATE TABLE `users` (
     `deleted_at`	TIMESTAMP	NULL	COMMENT '사용자 탈퇴 일시'
 );
 
-CREATE TABLE `post_report_history` (
+CREATE TABLE IF NOT EXISTS `post_report_history` (
     `report_id`	BIGINT AUTO_INCREMENT PRIMARY KEY	COMMENT '게시글 신고 식별 번호',
     `post_id`	BIGINT	NOT NULL	COMMENT '게시글 식별 번호',
     `user_id`	BIGINT	NOT NULL	COMMENT '사용자 식별 번호',
