@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS `comments` (
     `is_blinded`	BOOLEAN	NOT NULL	DEFAULT false	COMMENT '댓글 표시 여부',
     `created_at`	TIMESTAMP	NOT NULL	COMMENT '댓글 생성 일시',
     `updated_at`	TIMESTAMP	NULL	COMMENT '댓글 수정 일시',
-    `deleted_at`	TIMESTAMP	NULL	COMMENT '댓글 삭제 일시'
+    `deleted_at`	TIMESTAMP	NULL	COMMENT '댓글 삭제 일시',
+    INDEX idx_comments_post_id (post_id)
 );
 
 CREATE TABLE IF NOT EXISTS `posts` (
