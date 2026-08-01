@@ -1,4 +1,16 @@
 services:
+  mysql:
+    image: mysql:8.0
+    container_name: fitmate-mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    restart: always
+
   backend:
     build:
       context: ./backend
@@ -12,6 +24,11 @@ services:
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - AWS_S3_BUCKET=${AWS_S3_BUCKET}
       - AWS_S3_REGION=${AWS_S3_REGION}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    depends_on:
+      - mysql
     volumes:
       - uploads:/root/dev-uploads
     restart: always
@@ -31,5 +48,6 @@ services:
 
 volumes:
   uploads:
+  mysql-data:
 
 
