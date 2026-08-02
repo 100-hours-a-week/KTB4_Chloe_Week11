@@ -196,7 +196,7 @@ public class UserServiceTest {
 
         );
 
-        given(userRepository.existsByNickname(request.getNickname()))
+        given(userRepository.existsByNicknameAndUserIdNot(request.getNickname(), userId))
                 .willReturn(false);
 
         given(userRepository.findByuserIdAndIsMemberTrue(userId))
@@ -222,7 +222,7 @@ public class UserServiceTest {
                 profileImage
         );
 
-        given(userRepository.existsByNickname(request.getNickname()))
+        given(userRepository.existsByNicknameAndUserIdNot(request.getNickname(), userId))
                 .willReturn(false);
 
         given(userRepository.findByuserIdAndIsMemberTrue(userId))
