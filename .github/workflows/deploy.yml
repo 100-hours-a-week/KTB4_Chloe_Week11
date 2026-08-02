@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+
 jobs:
   backend-test:
     runs-on: ubuntu-latest
@@ -26,7 +27,6 @@ jobs:
           chmod +x gradlew
           ./gradlew build
 
-jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
