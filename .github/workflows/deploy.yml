@@ -28,6 +28,7 @@ jobs:
           ./gradlew build
 
   deploy:
+    needs: backend-test
     runs-on: ubuntu-latest
     steps:
       - name: SSH로 EC2 접속 후 배포
