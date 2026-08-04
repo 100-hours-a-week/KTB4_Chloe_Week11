@@ -28,6 +28,7 @@ jobs:
           ./gradlew build
   
   frontend-test:
+    needs: backend-test
     runs-on: ubuntu-latest
     steps:
       - name: 코드 체크아웃
