@@ -74,7 +74,7 @@ NotificationService.getUnreadCount(Long userId)
 
 | Response status code | message |
 |---|---|
-| 200 | `{ "message": "로그인 성공", "data": { "jwtToken": {...}, "profileImage": "https://.../profile.png", "link": "http://127.0.0.1:5500/frontend/Page/Board/board.html", "unreadCount": 5 } }` |
+| 200 | `{ "message": "로그인 성공", "data": { "jwtToken": {...}, "profileImage": "https://.../profile.png", "unreadCount": 5 } }` |
 | 401 | `{ "message": "이메일 또는 비밀번호가 일치하지 않습니다.", "field": null }` (기존 `UnauthorizedException`, 변경 없음) |
 | 404 | `{ "message": "존재하지 않는 사용자입니다.", "field": null }` (기존 `NotFoundException`, 변경 없음) |
 | 400 | `{ "message": ["이메일 형식이 맞지 않습니다.", "비밀번호는 필수값입니다."], "data": null }` (기존 `@Valid` 검증, 변경 없음) |

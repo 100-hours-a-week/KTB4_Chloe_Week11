@@ -60,7 +60,6 @@ public class PostController {
                 result.getLike_count(),
                 result.getComment_count(),
                 result.getView_count(),
-                "http://127.0.0.1:5500/frontend/Page/Post_detail/post_detail.html?postId=" + result.getPost_id(),
                 true //게시글 생성했을 때는 무조건 true
         );
 

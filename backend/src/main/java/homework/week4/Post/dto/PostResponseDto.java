@@ -1,6 +1,5 @@
 package homework.week4.Post.dto;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -8,7 +7,6 @@ import java.time.LocalDateTime;
 
 @Getter
 @NoArgsConstructor
-@AllArgsConstructor
 public class PostResponseDto {
 
     private Long post_id;
@@ -24,8 +22,6 @@ public class PostResponseDto {
     private Long like_count;
     private Long comment_count;
     private Long view_count;
-
-    private String link;
 
     private Boolean isOwner;
 

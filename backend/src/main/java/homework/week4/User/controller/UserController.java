@@ -33,14 +33,10 @@ public class UserController {
     )
     public ResponseEntity<ApiResponse<SignUpResponseDto>> createUser(@Valid @ModelAttribute SignUpRequestDto request) {
         SignUpResponseDto result = userService.createUser(request);
-        SignUpResponseDto response = new SignUpResponseDto(
-                result.getUser_id(),
-                "http://127.0.0.1:5500/frontend/Page/Login/login.html"
-        );
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(ApiResponse.of("회원 가입 완료",response));
+                .body(ApiResponse.of("회원 가입 완료",result));
     }
 
     //회원 정보 조회
@@ -65,15 +61,10 @@ public class UserController {
         Long userId = userDetails.getUserId();
 
         UserDeleteResponseDto result = userService.deleteUser(userId);
-        UserDeleteResponseDto response = new UserDeleteResponseDto(
-                result.getNickname(),
-                result.getIs_member(),
-                "http://127.0.0.1:5500/frontend/Page/Login/login.html"
-        );
 
         return ResponseEntity
                 .status(HttpStatus.OK)
-                .body(ApiResponse.of("회원 탈퇴 완료",response));
+                .body(ApiResponse.of("회원 탈퇴 완료",result));
     }
 
     //회원 정보 수정
