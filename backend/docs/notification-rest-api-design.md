@@ -1,214 +1,228 @@
 # FitMate 알림 기능 REST API 설계 문서
 
 상태: 설계 완료 (코드 미작성)
-참고 문서
-1. FitMate 알림 기능 설계 문서 — 알림 도메인 규칙, 데이터 모델, 좋아요 그룹핑 정책의 근거
-2. FitMate 알림 기능 SSE API 명세 (완료) — 알림 종류 값(`like`/`comment`/`blind`), `unreadCount` 등 필드 네이밍만 참조. SSE 자체는 재설계하지 않음.
 
-이 문서는 아래 네 개 API만 다룬다.
-1. 안 읽은 알림 개수 조회
+참고 문서
+1. `FitMate_알림기능_설계문서.md` — 알림 도메인 규칙, 데이터 모델(11개 필드), 좋아요 그룹핑 정책, 모달 표시 규칙의 근거
+2. `FitMate_알림_SSE_API_명세.md` (완료) — SSE 자체는 재설계하지 않고, 알림 종류 값(`like`/`comment`/`blind`), `unreadCount` 필드명, 그리고 "알림 생성 일시를 SSE id·커서 양쪽에 쓴다"는 결정만 그대로 가져와 REST 쪽과 맞춘다.
+
+작성 대상은 아래 네 개 API다.
+1. 안 읽은 알림 개수 조회 (신규 엔드포인트 없음 — 로그인 API 응답 확장)
 2. 알림 목록 조회
 3. 알림 읽음 처리
 4. 알림 삭제
 
 ---
 
-## 0. 공통 사항
+## 0. 실제 코드 확인 결과
 
-- Base path: `/notifications` (SSE 구독 엔드포인트 `GET /notifications/subscribe`와 리소스를 공유)
-- 인증: 기존 REST API와 동일하게 `Authorization: Bearer <accessToken>` (SSE 전용 httpOnly 쿠키와는 별개). 인증 실패는 `JWTFilter` → 전역 401 처리로 기존 컨벤션을 그대로 따른다.
-- 성공 응답: `ApiResponse<T>` (`{ message, data }`) — `backend/.../response/ApiResponse.java` 그대로 사용.
-- 에러 응답: `ErrorResponse` (`{ message, field? }`, 도메인 예외) / `ValidErrorResponse` (`{ message: string[] }`, `@Valid` 검증 실패). 새 예외는 만들지 않고 기존 `NotFoundException`(404), `UnauthorizedException`(401)만 재사용한다.
-- 알림 종류 값은 SSE 명세와 동일하게 `like` / `comment` / `blind` 문자열을 그대로 쓴다. 엔티티에서는 Java enum(`NotificationType.LIKE/COMMENT/BLIND`)으로 관리하고, JSON 직렬화 시 소문자로 노출한다.
-- 안 읽은 개수 필드명은 SSE의 `unreadCount`와 동일하게 `unreadCount`로 통일한다.
+### 0-1. 아직 존재하지 않는 것
+`homework.week4` 패키지 전체를 검색했지만 `Notification` 엔티티/컨트롤러/서비스/리포지토리는 아직 없다. 아래 데이터 모델과 API는 설계 문서의 11개 필드를 `Post`/`Comment` 엔티티의 기존 네이밍 컨벤션(카멜케이스 필드 + `@Column(name = "snake_case")`, `created_at`/`deleted_at` 감사 컬럼 패턴)에 맞춰 구체화한 것이다.
+
+### 0-2. 공통 응답 포맷 — 이미지로 준 예시와 다른 부분
+공유해주신 이미지의 `ok / status / error` 형태는 이 프로젝트 코드와 **일치하지 않는다.** 실제 코드(`response/ApiResponse.java`, `response/ErrorResponse.java`, `response/ValidErrorResponse.java`, `handler/GlobalExceptionHandler.java`) 기준은 다음과 같고, 이 문서는 전부 이 형태로 작성했다.
+
+| 상황 | 실제 응답 바디 | 비고 |
+|---|---|---|
+| 성공 | `{ "message": string, "data": T }` | `ApiResponse.of(message, data)` |
+| 비즈니스 예외 (400/401/403/404/409 ...) | `{ "message": string, "field": string \| null }` | `ErrorResponse`. `field`는 `DuplicateResourceException`만 값이 있고, 나머지는 `null`이 그대로 직렬화된다 (Jackson null 제외 설정 없음). |
+| `@Valid` 검증 실패 (400) | `{ "message": string[], "data": null }` | `ValidErrorResponse` |
+| 예기치 못한 서버 오류 (500) | `{ "message": string, "field": null }` | **비즈니스 예외와 동일한 `ErrorResponse` 형태다.** 500만 다른 필드 구성(`ok/status/message/data`)을 쓰지 않는다 — `GlobalExceptionHandler`의 `Exception.class` 핸들러도 `ErrorResponse.of(exception.getMessage())`를 그대로 쓴다. |
+
+→ `ok`, `status` 키는 JSON 바디 어디에도 없다. HTTP status는 응답 바디가 아니라 `ResponseEntity.status(...)`로만 표현된다. 이 문서의 "Response status code" 컬럼은 그 HTTP 상태 코드를 뜻한다.
+
+새로 필요한 예외 하나: query parameter 검증 실패(잘못된 커서, `limit` 값 등)에 쓸 400 전용 예외가 현재 없다 (`BusinessException`을 상속한 게 `NotFoundException`/`UnauthorizedException`/`ForbiddenException`/`DuplicateResourceException`/`TooManyRequestsException`뿐). `InvalidRequestException(message) → 400`을 하나 추가해야 하며, 응답 바디 형태는 기존 `ErrorResponse`를 그대로 재사용한다(새 포맷 아님).
 
 ---
 
-## 1. 안 읽은 알림 개수 조회
+## 1. 알림 데이터 모델 (신규 `Notification` 엔티티, 설계안)
 
-**`GET /notifications/unread-count`**
+설계 문서 3장의 11개 필드를 그대로 반영한다.
 
-### 요청
-파라미터 없음. 인증된 사용자(`@AuthenticationPrincipal`)의 `userId` 기준으로 본인 데이터만 조회.
+| # | 필드 (엔티티) | 컬럼 | 타입 | 값이 채워지는 대상 | 용도 |
+|---|---|---|---|---|---|
+| 1 | `notificationId` | `notification_id` | `Long` (PK, IDENTITY) | 전체 | REST 리소스 식별자 (`/notifications/{notification_id}`) |
+| 2 | `receiver` | `user_id` | `User` (ManyToOne) | 전체 | 알림 수신자 |
+| 3 | `type` | `notification_type` | Enum(`LIKE`/`COMMENT`/`BLIND`) | 전체 | API에는 소문자(`like`/`comment`/`blind`)로 노출 — SSE와 동일 |
+| 4 | `post` | `post_id` | `Post` (ManyToOne) | 전체 | 관련 게시글. 좋아요·댓글은 응답에 `postId` 노출, 블라인드는 이동하지 않으므로 미노출 |
+| 5 | `actor` | `actor_user_id` | `User` (ManyToOne, nullable) | 좋아요(그룹 내 최근 행위자)·댓글 | 블라인드는 `null` |
+| 6 | `comment` | `comment_id` | `Comment` (ManyToOne, nullable) | 댓글만 | 응답에는 노출 안 함 (모달이 댓글 내용을 안 보여줌) |
+| 7 | `likeGroupCount` | `like_group_count` | `Integer` | 좋아요만 갱신, 댓글·블라인드는 1 고정 | 좋아요 모달의 "그 사용자 외 N명" 계산용 |
+| 8 | `isRead` | `is_read` | `Boolean` | 전체 | 읽음 처리 API의 대상 |
+| 9 | `groupCreatedAt` | `group_created_at` | `LocalDateTime` (nullable) | **좋아요에만** 값이 채워짐 | 4시간 안전장치 판정 전용, 정렬/커서에는 절대 쓰지 않음 |
+| 10 | `createdAt` | `created_at` | `LocalDateTime` | 전체 | **알림 생성 일시.** 좋아요 그룹에 새 좋아요가 들어올 때마다 이 값이 갱신됨. 목록 정렬 기준 + SSE 이벤트 `id` + REST 커서 값의 원본이 전부 이 컬럼 하나다 |
+| 11 | `deletedAt` | `deleted_at` | `LocalDateTime` (nullable) | 전체 | 소프트 삭제, 목록 조회 시 항상 제외 |
 
-### 응답 — `200 OK`
-```json
-{
-  "message": "안 읽은 알림 개수 조회 성공",
-  "data": {
-    "unreadCount": 5
-  }
-}
+행위자·게시글 정보는 설계 문서 지침대로 페치 조인(`JOIN FETCH`)으로 함께 가져와 N+1을 피한다(`Post/repository/PostRepository.findLatestPosts` 패턴과 동일).
+
+### 안 읽은 개수 계산 — 공유 서비스 메서드
 ```
-
-### 서비스 설계 (요구사항 6)
-`NotificationService.getUnreadCount(Long userId)` 단일 메서드로 카운트 쿼리(`countByReceiverUserIdAndIsReadFalseAndDeletedAtIsNull`)를 수행하고, 이 메서드를 두 곳에서 그대로 재사용한다.
-- 이 컨트롤러
-- SSE 쪽 알림 생성 리스너(`@TransactionalEventListener`)가 `like`/`comment`/`blind` 이벤트를 push하기 직전 `data.unreadCount`를 계산할 때
-
-즉 REST 응답값과 SSE로 push되는 `unreadCount`는 항상 같은 소스에서 계산되며, 카운트 로직이 두 곳에 중복 구현되지 않는다.
-
-### 검증 및 에러 케이스
-| 상황 | 응답 |
-|---|---|
-| 인증 토큰 없음/만료/위조 | 401 (JWTFilter 공통 처리) |
-| 그 외 | 별도 검증 없음 — 파라미터가 없고 본인 데이터만 조회하므로 |
+NotificationService.getUnreadCount(Long userId)
+  = notificationRepository.countByReceiverUserIdAndIsReadFalseAndDeletedAtIsNull(userId)
+```
+이 메서드 하나를 아래 세 곳에서 재사용한다(로직 중복 구현 없음).
+- **로그인 응답** (API 1) — `AuthService.LoginUser`에서 호출
+- **SSE push** — `like`/`comment`/`blind` 이벤트를 보내는 `@TransactionalEventListener`가 `data.unreadCount` 계산 시 호출 (SSE 명세 3-5)
+- **읽음 처리 응답** (API 3) — 아래 2-3 참고
 
 ---
 
-## 2. 알림 목록 조회
+## 2. API 명세
 
-**`GET /notifications`**
+### 2-1. 안 읽은 알림 개수 조회 → 로그인 API 확장 (신규 엔드포인트 없음)
 
-### 요청 파라미터 (query string)
-| 파라미터 | 타입 | 필수 | 기본값 | 설명 |
-|---|---|---|---|---|
-| `cursorCreatedAt` | ISO-8601 datetime string | X | 없음(최초 조회) | 마지막으로 받은 알림의 `createdAt` |
-| `cursorId` | Long | `cursorCreatedAt`이 있으면 필수 | 없음 | 동시각 tie-break용, 마지막으로 받은 알림의 `notificationId` |
-| `limit` | int | X | `10` | Post 목록 API(`PostController.listPost`)와 동일한 기본값 |
-| `unreadOnly` | boolean | X | `false` | 안 읽은 알림만 필터링 |
+기존 `AuthController.LoginUser` / `LoginResponseDto`를 그대로 쓰고 `unreadCount` 필드만 추가한다. 요청/에러 로직은 손대지 않는다.
 
-**커서를 두 값(`cursorCreatedAt` + `cursorId`)으로 나눈 이유**: Post 목록 API는 정렬 기준과 PK(`postId`)가 같은 방향으로 단조 증가하기 때문에 `cursor` 하나(Long)로 충분하다. 하지만 알림 목록의 정렬 기준인 `created_at`(필드 10)은 좋아요 그룹에 새 좋아요가 들어올 때마다 갱신되는 값이라, PK(`notificationId`)와 증가 방향이 다를 수 있다 — 오래전에 생성된 낮은 id의 좋아요 그룹이 새 좋아요를 받으면 `created_at`만 최신화되고 id는 그대로다. 그래서 `notificationId` 단독 커서로는 정렬이 깨질 수 있어, `(created_at, notificationId)` 복합 커서로 tie-break한다.
+| Request method | url | body | 설명 |
+|---|---|---|---|
+| POST | `/auth/login` | `{ "email": string, "password": string }` (기존과 동일, 변경 없음) | 로그인. 응답에 `unreadCount` 추가 |
 
-### 정렬/조회 쿼리 방향 (Post의 `findLatestPosts` 패턴 응용)
+| Response status code | message |
+|---|---|
+| 200 | `{ "message": "로그인 성공", "data": { "jwtToken": {...}, "profileImage": "https://.../profile.png", "link": "http://127.0.0.1:5500/frontend/Page/Board/board.html", "unreadCount": 5 } }` |
+| 401 | `{ "message": "이메일 또는 비밀번호가 일치하지 않습니다.", "field": null }` (기존 `UnauthorizedException`, 변경 없음) |
+| 404 | `{ "message": "존재하지 않는 사용자입니다.", "field": null }` (기존 `NotFoundException`, 변경 없음) |
+| 400 | `{ "message": ["이메일 형식이 맞지 않습니다.", "비밀번호는 필수값입니다."], "data": null }` (기존 `@Valid` 검증, 변경 없음) |
+
+`LoginResponseDto`에 `unreadCount` 필드를 추가하고, `AuthService.LoginUser`가 `user` 조회 직후 `notificationService.getUnreadCount(user.getUserId())`를 호출해 채워 넣는다. `AuthService`가 `NotificationService`를 새로 의존하게 된다.
+
+---
+
+### 2-2. 알림 목록 조회
+
+| Request method | url | query parameter | 설명 |
+|---|---|---|---|
+| GET | `/notifications` | `cursor` (string, optional), `limit` (int, default 10), `unreadOnly` (boolean, default false) | 커서 기반 무한 스크롤. 정렬은 `createdAt` DESC |
+
+**`cursor` 설계 — base64 opaque 문자열**
+- 서버가 응답에 실어 보낸 `nextCursor` 값을 클라이언트는 그대로 다음 요청의 `cursor`로 넘기기만 한다. 내부 값을 파싱하거나 직접 만들 수 없다.
+- 인코딩: 마지막 항목의 `createdAt`(ISO-8601, 예: `2026-08-04T13:20:00.123456`)을 UTF-8 바이트로 만들고 `Base64` 인코딩한다. 서명(HMAC)은 지금 단계에서는 넣지 않는다 — 5장 "추후 과제" 참고.
+- 서버는 `cursor`를 디코딩해서 `LocalDateTime`으로 파싱한 뒤 `WHERE created_at < :decoded` 조건에만 쓴다. 설계 문서 3장 지침대로 보조 tie-break 컬럼(id 등)은 두지 않는다 — SSE의 Last-Event-ID 비교도 동일하게 `created_at` 단독 비교라 REST 쪽만 별도 규칙을 만들 이유가 없다.
+- `cursor`가 base64로 디코딩되지 않거나 디코딩 결과가 유효한 날짜 형식이 아니면 400.
+
+**정렬/조회 쿼리 방향**
 ```
 WHERE receiver_id = :userId
   AND deleted_at IS NULL
   AND (:unreadOnly = false OR is_read = false)
-  AND (
-    :cursorCreatedAt IS NULL
-    OR created_at < :cursorCreatedAt
-    OR (created_at = :cursorCreatedAt AND notification_id < :cursorId)
-  )
-ORDER BY created_at DESC, notification_id DESC
+  AND (:decodedCursor IS NULL OR created_at < :decodedCursor)
+ORDER BY created_at DESC
 LIMIT :limit
 ```
-`group_created_at`(4시간 안전장치 전용, 좋아요만 값 있음)은 이 쿼리에 전혀 등장하지 않는다. 행위자 정보는 설계 문서 3장 지침대로 페치 조인으로 함께 가져와 N+1을 피한다.
 
-### 응답 — `200 OK`
+| Response status code | message |
+|---|---|
+| 200 | 아래 예시 참고 |
+| 400 | `{ "message": "cursor 형식이 올바르지 않습니다.", "field": null }` (신규 `InvalidRequestException`) |
+| 400 | `{ "message": "limit 값이 올바르지 않습니다.", "field": null }` (신규 `InvalidRequestException`, `limit <= 0`) |
+| 401 | `{ "message": "인증이 필요합니다.", "field": null }` |
+
+**200 응답 예시** (Post 목록 API와 달리, opaque 커서를 클라이언트가 직접 만들 수 없으므로 `nextCursor`를 응답에 함께 내려줘야 한다 — 그래서 리스트만 반환하던 기존 컨벤션과 다르게 `notifications` + `nextCursor`로 한 단계 감쌌다):
 ```json
 {
   "message": "알림 목록 조회 성공",
-  "data": [
-    {
-      "notificationId": 42,
-      "type": "like",
-      "isRead": false,
-      "createdAt": "2026-08-04T13:20:00",
-      "actorNickname": "예원",
-      "actorProfileImage": "https://.../profile.png",
-      "likeGroupCount": 3
-    },
-    {
-      "notificationId": 41,
-      "type": "comment",
-      "isRead": true,
-      "createdAt": "2026-08-04T12:05:00",
-      "actorNickname": "재현",
-      "actorProfileImage": "https://.../profile2.png",
-      "likeGroupCount": null
-    },
-    {
-      "notificationId": 40,
-      "type": "blind",
-      "isRead": false,
-      "createdAt": "2026-08-04T10:00:00",
-      "actorNickname": null,
-      "actorProfileImage": null,
-      "likeGroupCount": null
-    }
-  ]
+  "data": {
+    "notifications": [
+      {
+        "notificationId": 42,
+        "type": "like",
+        "isRead": false,
+        "createdAt": "2026-08-04T13:20:00.123456",
+        "postId": 17,
+        "postTitle": "오늘 3대 운동 인증합니다",
+        "actorNickname": "예원",
+        "actorProfileImage": "https://.../profile.png",
+        "likeGroupCount": 3
+      },
+      {
+        "notificationId": 41,
+        "type": "comment",
+        "isRead": true,
+        "createdAt": "2026-08-04T12:05:00.000000",
+        "postId": 12,
+        "postTitle": "헬스장 PT 후기 남깁니다",
+        "actorNickname": "재현",
+        "actorProfileImage": "https://.../profile2.png",
+        "likeGroupCount": null
+      },
+      {
+        "notificationId": 40,
+        "type": "blind",
+        "isRead": false,
+        "createdAt": "2026-08-04T10:00:00.000000",
+        "postId": null,
+        "postTitle": "운동 안 하고 놀러만 다닙니다",
+        "actorNickname": null,
+        "actorProfileImage": null,
+        "likeGroupCount": null
+      }
+    ],
+    "nextCursor": "MjAyNi0wOC0wNFQxMDowMDowMC4wMDAwMDA="
+  }
 }
 ```
+다음 페이지가 없으면 `nextCursor: null` — 별도의 `hasNext` 불리언은 두지 않는다.
 
-**필드가 이것만 있는 이유 (요구사항 2)**: 설계 문서 9장의 모달 내용 요건을 그대로 매핑한 것이 전부다.
-- 좋아요 모달: "최근 행위자 + 그룹 카운트" → `actorNickname`, `actorProfileImage`, `likeGroupCount` (카운트 1이면 그 사용자만, 2 이상이면 FE가 `likeGroupCount - 1`로 "외 N명" 계산)
-- 댓글 모달: "어떤 사용자가 댓글을 남겼다는 사실만" → `actorNickname`, `actorProfileImage`만 필요, 댓글 내용은 응답에 넣지 않는다
-- 블라인드 모달: "신고 누적으로 블라인드 처리되었다"는 문구는 매번 동일한 고정 문구라 서버가 값을 보낼 필요가 없다 — `type: "blind"`만으로 FE가 정적 문구를 렌더링
+**필드 근거** (설계 문서 9장, 목록 카드와 모달이 같은 응답을 공유 — 별도 상세 조회 API 없음)
+- `postTitle`: 9-8 "모든 모달 내용에는 게시글 제목이 필수로 들어가야 한다" → **세 종류 전부** 포함
+- `postId`: 9-6 "댓글과 좋아요 모달은 클릭 시에 관련된 게시글로 이동한다" → 좋아요·댓글만 포함, 블라인드는 9-7("클릭해도 아무 반응 없음")에 따라 `null`
+- `actorNickname` / `actorProfileImage`: 좋아요는 그룹 내 최근 행위자(9-1), 댓글은 작성자(9-2). 블라인드는 행위자 개념이 없어 `null`
+- `likeGroupCount`: 좋아요 모달의 "카운트 1이면 그 사용자만, 2 이상이면 외 N명"(9-1) 계산용. FE가 `likeGroupCount - 1`로 나머지 인원수 계산
+- `commentId`는 응답에 넣지 않는다 — 댓글 모달이 댓글 내용을 보여주지 않으므로(9-2) 필요 없음
 
-`postId`, `commentId`는 모달이 게시글로 이동하지 않으므로(요구사항 2, 상세 조회 API 미생성) 응답에 포함하지 않는다. 서버 내부적으로는 엔티티에 계속 저장해 둔다(연관 게시글 추적용).
+---
 
-### 다음 페이지 존재 여부
-별도의 `hasNext`/`nextCursor` 메타 필드를 두지 않는다 — Post 목록 API와 동일한 컨벤션. 응답 리스트 길이가 `limit`과 같으면 다음 페이지가 있을 수 있다고 간주하고, 마지막 항목의 `createdAt`/`notificationId`를 다음 요청의 `cursorCreatedAt`/`cursorId`로 넘긴다.
+### 2-3. 알림 읽음 처리
 
-### 검증 및 에러 케이스
-| 상황 | 응답 |
+| Request method | url | body | 설명 |
+|---|---|---|---|
+| PATCH | `/notifications/{notification_id}/read` | 없음 | 읽음 처리. 응답에 갱신된 `unreadCount` 포함 |
+
+신규 엔드포인트를 만들지 않기로 했기 때문에(요구사항 1), 설계 문서 9-5 "읽음 처리 후 사이드바 개수는 서버에 다시 요청해서 갱신"을 만족하려면 이 API 응답이 그 값을 실어 보내는 방법뿐이다. 그래서 `getUnreadCount`를 여기서도 재사용한다.
+
+| Response status code | message |
 |---|---|
-| `cursorCreatedAt` 형식이 ISO-8601이 아님(파싱 실패) | 400 |
-| `cursorCreatedAt`만 있고 `cursorId`가 없음 (또는 반대) | 400 |
-| `limit <= 0` | 400 |
-| 인증 없음 | 401 |
+| 200 | `{ "message": "알림 읽음 처리 완료", "data": { "unreadCount": 4 } }` |
+| 404 | `{ "message": "알림을 찾을 수 없습니다.", "field": null }` (존재하지 않음 / 본인 소유 아님 / 이미 소프트 삭제됨 — 모두 동일 메시지) |
+| 401 | `{ "message": "인증이 필요합니다.", "field": null }` |
 
-> `limit` 검증은 현재 `PostController.listPost`에는 없는 방어 로직이다(0 이하 값이 오면 `PageRequest.of`에서 미확인 예외로 500이 난다). 이번 API는 처음부터 검증을 넣어 방지하고, 필요하면 Post 쪽도 같은 방식으로 보강할지 별도로 논의할 수 있다.
+멱등성: 이미 읽음 처리된 알림에 다시 호출해도 에러 없이 200과 현재 `unreadCount`를 반환한다. 좋아요 그룹의 "읽음 처리 시 그룹 종료" 규칙은 이 API가 아니라 *다음 좋아요가 들어오는 시점*에 "기존 그룹이 이미 읽음 상태인가"를 확인해서 처리하는 로직이므로, 이 API는 `is_read = true` 갱신 외에 별도 처리가 필요 없다.
 
 ---
 
-## 3. 알림 읽음 처리
+### 2-4. 알림 삭제
 
-**`PATCH /notifications/{notification_id}/read`**
+| Request method | url | body | 설명 |
+|---|---|---|---|
+| DELETE | `/notifications/{notification_id}` | 없음 | 소프트 삭제 (`deleted_at`만 기록) |
 
-기존 `PATCH` 사용 사례(`UserController.changePassword`)와 동일하게, 값을 반환할 필요 없는 순수 상태 변경에 `PATCH` + `204`를 쓴다.
-
-### 요청
-경로 파라미터 `notification_id`(Long). 바디 없음.
-
-### 응답 — `204 No Content`
-바디 없음.
-
-**`unreadCount`를 반환하지 않는 이유**: 설계 문서 9장 5번 "읽음 처리가 끝나면 사이드바의 안 읽은 개수는 프론트에서 임의로 계산하지 않고, 서버에 다시 요청해서 받은 값으로 갱신한다"를 그대로 따른 것이다. FE는 이 API 호출 후 별도로 `GET /notifications/unread-count`를 재호출해서 최신값을 받는다.
-
-**멱등성**: 이미 읽음 처리된 알림에 다시 호출해도 에러 없이 `204`를 반환한다(부작용 없음, 이미 읽음 상태 유지). 좋아요 그룹의 "읽음 처리 시 그룹 종료" 규칙(설계 문서 4장 3번)은 이 API가 아니라 *새 좋아요가 들어오는 시점*에 "기존 알림이 이미 읽음 상태인가"를 확인해서 판단하는 로직이므로, 이 API는 `is_read = true`로 갱신하는 것 외에 별도 처리가 필요 없다.
-
-### 검증 및 에러 케이스
-| 상황 | 응답 |
+| Response status code | message |
 |---|---|
-| `notification_id`에 해당하는 알림이 없음 | 404 |
-| 알림은 존재하지만 본인(`receiver`) 소유가 아님 | 404 (403 대신 — 존재 여부를 노출하지 않기 위해 `Like` 취소 API 등 기존 코드와 동일하게 "없는 것처럼" 처리) |
-| 이미 소프트 삭제된 알림 | 404 |
-| 인증 없음 | 401 |
+| 200 | `{ "message": "알림 삭제 완료", "data": null }` |
+| 404 | `{ "message": "존재하지 않거나 아직 읽지 않은 알림입니다.", "field": null }` |
+| 401 | `{ "message": "인증이 필요합니다.", "field": null }` |
+
+**요구사항 반영**: "알림이 없음"과 "있지만 읽음 상태가 아님"을 서로 다른 메시지로 구분하지 않는다. 조회 쿼리를 `receiver_id`, `deleted_at IS NULL`, `is_read = true`, `notification_id` 조건으로 한 번에 걸고, 결과가 없으면 무조건 위 단일 메시지로 `NotFoundException`을 던지면 자연스럽게 두 상황이 같은 응답으로 합쳐진다.
 
 ---
 
-## 4. 알림 삭제
+## 3. 이번 설계에서 다루지 않은 것 / 추후 과제
 
-**`DELETE /notifications/{notification_id}`**
-
-`PostController.deletePost`와 동일한 컨벤션: 소프트 삭제 + `204 No Content`.
-
-### 요청
-경로 파라미터 `notification_id`(Long). 바디 없음.
-
-### 응답 — `204 No Content`
-`deleted_at`에 현재 시각만 기록하고 실제 행은 지우지 않는다(설계 문서 10장 3번과 동일).
-
-### 검증 및 에러 케이스 (요구사항 3)
-아래 네 가지 상황을 **모두 동일하게 404**로 응답한다. 조회 쿼리를 `receiver_id`, `deleted_at IS NULL`, `is_read = true` 조건으로 한 번에 걸고, 결과가 없으면 무조건 `NotFoundException`을 던지는 방식으로 구현하면 자연스럽게 이렇게 된다.
-
-| 상황 | 응답 |
-|---|---|
-| `notification_id`에 해당하는 알림이 없음 | 404 |
-| 본인 소유가 아님 | 404 |
-| 이미 소프트 삭제됨 | 404 |
-| 아직 읽음 처리되지 않음(`is_read = false`) | 404 — 지침("읽음 상태가 아니면 404")에 따른 것 |
-| 인증 없음 | 401 |
+1. **커서 서명(HMAC)** — 지금은 base64 인코딩만 하고 서명은 붙이지 않는다. 클라이언트가 디코딩해서 임의 날짜로 조작한 `cursor`를 보내도 현재 구조에서는 그대로 조회가 수행된다(본인 알림만 필터링되므로 다른 사용자 데이터가 노출되지는 않지만, 임의 시점부터 조회는 가능하다). 필요해지면 서버 비밀키로 HMAC 서명을 추가해 위변조를 막는다.
+2. 소프트 삭제된 알림의 하드 삭제 배치 및 보존 기간.
+3. 알림 목록/개수 조회에 대한 캐싱 여부 및 전략.
+4. 여러 탭·기기 동시 접속, 서버 다중화 시 확장성 문제 (설계 문서 11장과 동일하게 범위 밖).
 
 ---
 
-## 5. 이번 설계에서 다루지 않은 것 (추후 논의)
-
-지시사항대로 아래 항목은 이번 문서 범위에서 제외했다. 필요하면 이어서 설계할 수 있다.
-1. 소프트 삭제된 알림의 하드 삭제 배치 및 보존 기간
-2. 알림 목록/개수 조회에 대한 캐싱 여부 및 전략
-
----
-
-## 부록 — 참고한 기존 코드 컨벤션
+## 부록 — 참고한 기존 코드
 
 | 항목 | 참고 위치 |
 |---|---|
 | 공통 응답 wrapper | `response/ApiResponse.java`, `response/ErrorResponse.java`, `response/ValidErrorResponse.java` |
-| 커서 기반 페이지네이션 | `Post/controller/PostController.java`의 `listPost`, `Post/repository/PostRepository.java`의 `findLatestPosts` |
-| 소프트 삭제 + 204 삭제 컨벤션 | `Post/service/PostService.java`의 `deletePost` |
-| PATCH + 204(상태 변경 전용) 컨벤션 | `User/controller/UserController.java`의 `changePassword` |
-| "존재하지 않는 것처럼" 404 처리 | `Post/service/PostService.java`의 `cancelLike` (`NotFoundException`) |
-| 예외 → HTTP 상태 매핑 | `handler/GlobalExceptionHandler.java`, `exception/NotFoundException.java` |
+| 예외 → HTTP 상태 매핑 | `handler/GlobalExceptionHandler.java`, `exception/BusinessException.java`, `exception/NotFoundException.java` |
+| 로그인 API (확장 대상) | `Auth/controller/AuthController.java`, `Auth/service/AuthService.java`, `Auth/dto/LoginResponseDto.java` |
+| 커서 페이지네이션 원형 | `Post/controller/PostController.java`의 `listPost`, `Post/repository/PostRepository.java`의 `findLatestPosts` (단, 여기 커서는 opaque가 아닌 평문 Long이라 이번 설계와 인코딩 방식은 다름) |
+| 소프트 삭제 컨벤션 | `Post/service/PostService.java`의 `deletePost` |
+| "존재하지 않는 것처럼" 404 처리 | `Post/service/PostService.java`의 `cancelLike` |
+| 엔티티 컬럼 네이밍(`created_at`/`deleted_at` 등) | `Post/entity/Post.java`, `Comment/entity/Comment.java` |
