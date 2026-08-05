@@ -16,11 +16,6 @@
 
 ## 0. 실제 코드 확인 결과
 
-### 0-1. 아직 존재하지 않는 것
-`homework.week4` 패키지 전체를 검색했지만 `Notification` 엔티티/컨트롤러/서비스/리포지토리는 아직 없다. 아래 데이터 모델과 API는 설계 문서의 11개 필드를 `Post`/`Comment` 엔티티의 기존 네이밍 컨벤션(카멜케이스 필드 + `@Column(name = "snake_case")`, `created_at`/`deleted_at` 감사 컬럼 패턴)에 맞춰 구체화한 것이다.
-
-### 0-2. 공통 응답 포맷 — 이미지로 준 예시와 다른 부분
-공유해주신 이미지의 `ok / status / error` 형태는 이 프로젝트 코드와 **일치하지 않는다.** 실제 코드(`response/ApiResponse.java`, `response/ErrorResponse.java`, `response/ValidErrorResponse.java`, `handler/GlobalExceptionHandler.java`) 기준은 다음과 같고, 이 문서는 전부 이 형태로 작성했다.
 
 | 상황 | 실제 응답 바디 | 비고 |
 |---|---|---|
@@ -29,7 +24,7 @@
 | `@Valid` 검증 실패 (400) | `{ "message": string[], "data": null }` | `ValidErrorResponse` |
 | 예기치 못한 서버 오류 (500) | `{ "message": string, "field": null }` | **비즈니스 예외와 동일한 `ErrorResponse` 형태다.** 500만 다른 필드 구성(`ok/status/message/data`)을 쓰지 않는다 — `GlobalExceptionHandler`의 `Exception.class` 핸들러도 `ErrorResponse.of(exception.getMessage())`를 그대로 쓴다. |
 
-→ `ok`, `status` 키는 JSON 바디 어디에도 없다. HTTP status는 응답 바디가 아니라 `ResponseEntity.status(...)`로만 표현된다. 이 문서의 "Response status code" 컬럼은 그 HTTP 상태 코드를 뜻한다.
+→ HTTP status는 응답 바디가 아니라 `ResponseEntity.status(...)`로만 표현된다. 이 문서의 "Response status code" 컬럼은 그 HTTP 상태 코드를 뜻한다.
 
 새로 필요한 예외 하나: query parameter 검증 실패(잘못된 커서, `limit` 값 등)에 쓸 400 전용 예외가 현재 없다 (`BusinessException`을 상속한 게 `NotFoundException`/`UnauthorizedException`/`ForbiddenException`/`DuplicateResourceException`/`TooManyRequestsException`뿐). `InvalidRequestException(message) → 400`을 하나 추가해야 하며, 응답 바디 형태는 기존 `ErrorResponse`를 그대로 재사용한다(새 포맷 아님).
 
