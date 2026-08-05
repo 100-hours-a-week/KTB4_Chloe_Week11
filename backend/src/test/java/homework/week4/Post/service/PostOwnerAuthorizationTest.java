@@ -17,6 +17,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.access.AccessDeniedException;
@@ -86,6 +87,11 @@ class PostOwnerAuthorizationTest {
         }
 
         @Bean
+        ApplicationEventPublisher eventPublisher() {
+            return Mockito.mock(ApplicationEventPublisher.class);
+        }
+
+        @Bean
         PostVerifyService postVerifyService(PostRepository postRepository) {
             return new PostVerifyService(postRepository);
         }
@@ -95,9 +101,10 @@ class PostOwnerAuthorizationTest {
                                  ReportRepository reportRepository, ChangeRepository changeRepository,
                                  CommentRepository commentRepository, UserService userService,
                                  CommentService commentService, PostVerifyService postVerifyService,
-                                 FileStorageService fileStorageService) {
+                                 FileStorageService fileStorageService, ApplicationEventPublisher eventPublisher) {
             return new PostService(postRepository, likeRespoitory, reportRepository, changeRepository,
-                    commentRepository, userService, commentService, postVerifyService, fileStorageService);
+                    commentRepository, userService, commentService, postVerifyService, fileStorageService,
+                    eventPublisher);
         }
     }
 

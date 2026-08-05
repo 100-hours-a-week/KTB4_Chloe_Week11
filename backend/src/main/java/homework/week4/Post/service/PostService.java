@@ -4,6 +4,8 @@ import homework.week4.Comment.dto.CommentResponseDto;
 import homework.week4.Comment.repository.CommentRepository;
 import homework.week4.Comment.service.CommentService;
 import homework.week4.FileUpload.FileStorageService;
+import homework.week4.Notification.event.LikeCreatedEvent;
+import homework.week4.Notification.event.PostBlindedEvent;
 import homework.week4.Post.dto.*;
 import homework.week4.Post.entity.Like;
 import homework.week4.Post.entity.Post;
@@ -17,6 +19,7 @@ import homework.week4.User.entity.User;
 import homework.week4.User.service.UserService;
 import homework.week4.exception.DuplicateResourceException;
 import homework.week4.exception.NotFoundException;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -45,6 +48,8 @@ public class PostService {
     private final PostVerifyService postVerifyService;
 
     private final FileStorageService fileStorageService;
+
+    private final ApplicationEventPublisher eventPublisher;
 
     //게시글 등록
     @Transactional
@@ -237,6 +242,16 @@ public class PostService {
 
         post.likeCount(likeCount);
 
+        //본인 게시글에 본인이 좋아요를 누른 경우는 알림을 만들지 않는다
+        if (!user.getUserId().equals(post.getWriter().getUserId())) {
+            eventPublisher.publishEvent(new LikeCreatedEvent(
+                    post.getPostId(),
+                    user.getUserId(),
+                    post.getWriter().getUserId(),
+                    LocalDateTime.now()
+            ));
+        }
+
         return new PostLikeResponseDto(likeCount);
     }
 
@@ -292,6 +307,11 @@ public class PostService {
 
         if(reportCount >= 5){
             post.PostHideTrue();
+            eventPublisher.publishEvent(new PostBlindedEvent(
+                    post.getPostId(),
+                    post.getWriter().getUserId(),
+                    reportedDateTime
+            ));
         }
 
         return new PostReportResponseDto(
