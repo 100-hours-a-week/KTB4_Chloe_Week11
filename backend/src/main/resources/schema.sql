@@ -63,3 +63,22 @@ CREATE TABLE IF NOT EXISTS `post_report_history` (
     `user_id`	BIGINT	NOT NULL	COMMENT '사용자 식별 번호',
     `reported_at`	TIMESTAMP	NOT NULL	COMMENT '신고 시각'
 );
+
+CREATE TABLE IF NOT EXISTS `notifications` (
+    `notification_id`	BIGINT	AUTO_INCREMENT PRIMARY KEY	COMMENT '알림 식별 번호',
+    `user_id`	BIGINT	NOT NULL	COMMENT '알림 수신자 사용자 식별 번호',
+    `notification_type`	VARCHAR(10)	NOT NULL	COMMENT '알림 종류 (LIKE, COMMENT, BLIND)',
+    `post_id`	BIGINT	NOT NULL	COMMENT '관련 게시글 식별 번호',
+    `actor_user_id`	BIGINT	NULL	COMMENT '알림 발생 행위자 사용자 식별 번호 (블라인드는 NULL)',
+    `comment_id`	BIGINT	NULL	COMMENT '관련 댓글 식별 번호 (댓글 알림만)',
+    `like_group_count`	INT	NOT NULL	DEFAULT 1	COMMENT '좋아요 그룹 인원 수 (댓글·블라인드는 1 고정)',
+    `is_read`	BOOLEAN	NOT NULL	DEFAULT false	COMMENT '읽음 여부',
+    `group_created_at`	TIMESTAMP	NULL	COMMENT '좋아요 그룹 최초 생성 시각 (좋아요 알림만)',
+    `created_at`	TIMESTAMP	NOT NULL	COMMENT '알림 생성/그룹 갱신 일시',
+    `deleted_at`	TIMESTAMP	NULL	COMMENT '알림 소프트 삭제 일시',
+    FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`),
+    FOREIGN KEY (`actor_user_id`) REFERENCES `users` (`user_id`),
+    FOREIGN KEY (`post_id`) REFERENCES `posts` (`post_id`),
+    FOREIGN KEY (`comment_id`) REFERENCES `comments` (`comment_id`),
+    INDEX idx_notifications_receiver (user_id, deleted_at, created_at)
+);
