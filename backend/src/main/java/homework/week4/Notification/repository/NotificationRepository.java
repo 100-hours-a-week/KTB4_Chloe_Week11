@@ -3,6 +3,7 @@ package homework.week4.Notification.repository;
 import homework.week4.Notification.entity.Notification;
 import homework.week4.Notification.entity.NotificationType;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -37,4 +38,29 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
         ORDER BY n.createdAt ASC
     """)
     List<Notification> findMissedNotifications(@Param("userId") Long userId, @Param("after") LocalDateTime after);
+
+    //알림 목록 커서 페이지네이션. createdAt DESC, unreadOnly 필터, opaque 커서(createdAt) 적용
+    @Query("""
+        SELECT n
+        FROM Notification n
+        JOIN FETCH n.post
+        LEFT JOIN FETCH n.actor
+        WHERE n.receiver.userId = :userId
+        AND n.deletedAt IS NULL
+        AND (:unreadOnly = false OR n.isRead = false)
+        AND (:cursor IS NULL OR n.createdAt < :cursor)
+        ORDER BY n.createdAt DESC
+    """)
+    List<Notification> findNotifications(
+            @Param("userId") Long userId,
+            @Param("unreadOnly") boolean unreadOnly,
+            @Param("cursor") LocalDateTime cursor,
+            Pageable pageable
+    );
+
+    //읽음 처리용 조회. 이미 읽었어도 조회는 되어야 멱등하게 200을 낼 수 있다
+    Optional<Notification> findByNotificationIdAndReceiverUserIdAndDeletedAtIsNull(Long notificationId, Long receiverId);
+
+    //삭제용 조회. 읽음 처리된 알림만 삭제 대상이므로 is_read = true 조건을 함께 건다 (미읽음이면 존재하지 않는 것과 동일하게 404)
+    Optional<Notification> findByNotificationIdAndReceiverUserIdAndIsReadTrueAndDeletedAtIsNull(Long notificationId, Long receiverId);
 }
