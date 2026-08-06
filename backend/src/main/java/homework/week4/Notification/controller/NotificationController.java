@@ -56,9 +56,12 @@ public class NotificationController {
         Long userId = userDetails.getUserId();
         Long unreadCount = notificationService.markAsRead(userId, notificationId);
 
+        // 댓글·좋아요는 data가 null, 블라인드만 unreadCount를 담아 응답한다
+        NotificationReadResponseDto data = unreadCount != null ? new NotificationReadResponseDto(unreadCount) : null;
+
         return ResponseEntity
                 .status(HttpStatus.OK)
-                .body(ApiResponse.of("알림 읽음 처리 완료", new NotificationReadResponseDto(unreadCount)));
+                .body(ApiResponse.of("알림 읽음 처리 완료", data));
     }
 
     @DeleteMapping("/{notification_id}")

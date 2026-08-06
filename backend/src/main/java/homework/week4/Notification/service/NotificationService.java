@@ -148,7 +148,9 @@ public class NotificationService {
         return new NotificationListResponseDto(items, nextCursor);
     }
 
-    //읽음 처리. 이미 읽은 알림을 다시 호출해도 에러 없이 현재 unreadCount를 반환한다(멱등)
+    //읽음 처리. 이미 읽은 알림을 다시 호출해도 에러 없이 처리된다(멱등)
+    //댓글·좋아요는 클릭 즉시 다른 페이지로 이동하는 프론트 UX라 unreadCount가 필요 없어 null을 반환하고,
+    //블라인드는 같은 화면에 머무르며 값을 재조정해야 해서 unreadCount를 반환한다
     @Transactional
     public Long markAsRead(Long userId, Long notificationId) {
         Notification notification = notificationRepository
@@ -157,7 +159,10 @@ public class NotificationService {
 
         notification.markAsRead();
 
-        return getUnreadCount(userId);
+        if (notification.getType() == NotificationType.BLIND) {
+            return getUnreadCount(userId);
+        }
+        return null;
     }
 
     //소프트 삭제. 읽음 처리되지 않은 알림은 조회 자체가 안 되어 "존재하지 않음"과 동일하게 404로 수렴한다
