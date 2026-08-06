@@ -46,7 +46,7 @@ public class NotificationService {
                         receiverUserId, postId, NotificationType.LIKE, groupWindowStart);
 
         if (activeGroup.isPresent()) {
-            activeGroup.get().updateLikeGroup(actor, occurredAt);
+            activeGroup.get().updateLikeGroup(occurredAt);
         } else {
             notificationRepository.save(new Notification(receiver, post, actor, occurredAt));
         }
