@@ -1,19 +1,21 @@
 package homework.week4.Notification.controller;
 
+import homework.week4.Notification.dto.NotificationListResponseDto;
+import homework.week4.Notification.dto.NotificationReadResponseDto;
 import homework.week4.Notification.entity.Notification;
 import homework.week4.Notification.service.NotificationService;
 import homework.week4.Notification.sse.SseEmitterRegistry;
 import homework.week4.Security.Userdetails.CustomUserDetails;
+import homework.week4.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.util.StringUtils;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import jakarta.servlet.http.HttpServletResponse;
@@ -30,6 +32,62 @@ public class NotificationController {
 
     private final NotificationService notificationService;
     private final SseEmitterRegistry sseEmitterRegistry;
+
+    @GetMapping
+    public ResponseEntity<ApiResponse<NotificationListResponseDto>> listNotifications(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestParam(value = "cursor", required = false) String cursor,
+            @RequestParam(name = "limit", defaultValue = "10") int limit,
+            @RequestParam(name = "unreadOnly", defaultValue = "false") boolean unreadOnly
+    ) {
+        Long userId = userDetails.getUserId();
+        NotificationListResponseDto result = notificationService.listNotifications(userId, cursor, limit, unreadOnly);
+
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(ApiResponse.of("알림 목록 조회 성공", result));
+    }
+
+    @PatchMapping("/{notification_id}/read")
+    public ResponseEntity<ApiResponse<NotificationReadResponseDto>> readNotification(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable("notification_id") Long notificationId
+    ) {
+        Long userId = userDetails.getUserId();
+        Long unreadCount = notificationService.markAsRead(userId, notificationId);
+
+        // 댓글·좋아요는 data가 null, 블라인드만 unreadCount를 담아 응답한다
+        NotificationReadResponseDto data = unreadCount != null ? new NotificationReadResponseDto(unreadCount) : null;
+
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(ApiResponse.of("알림 읽음 처리 완료", data));
+    }
+
+    @PatchMapping("/read-all")
+    public ResponseEntity<ApiResponse<NotificationReadResponseDto>> readAllNotifications(
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        Long userId = userDetails.getUserId();
+        Long unreadCount = notificationService.markAllAsRead(userId);
+
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(ApiResponse.of("모두 읽음 처리 완료", new NotificationReadResponseDto(unreadCount)));
+    }
+
+    @DeleteMapping("/{notification_id}")
+    public ResponseEntity<ApiResponse<Void>> deleteNotification(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable("notification_id") Long notificationId
+    ) {
+        Long userId = userDetails.getUserId();
+        notificationService.deleteNotification(userId, notificationId);
+
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(ApiResponse.of("알림 삭제 완료", null));
+    }
 
     @GetMapping(value = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter subscribe(

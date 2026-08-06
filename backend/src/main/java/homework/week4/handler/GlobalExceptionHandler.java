@@ -116,4 +116,14 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(exception.getMessage()));
     }
 
+    //잘못된 요청 파라미터 예외 처리 (cursor, limit 등)
+    @ExceptionHandler(InvalidRequestException.class)
+    public ResponseEntity<ErrorResponse> invalidRequestException(
+            InvalidRequestException exception) {
+
+        return ResponseEntity
+                .status(exception.getStatus())
+                .body(ErrorResponse.of(exception.getMessage()));
+    }
+
 }
