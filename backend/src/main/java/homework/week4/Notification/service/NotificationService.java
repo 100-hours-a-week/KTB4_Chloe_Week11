@@ -165,6 +165,13 @@ public class NotificationService {
         return null;
     }
 
+    //모두 읽음 처리. 안 읽은 알림 전체를 한 번에 갱신하고 갱신 후 unreadCount(0)를 반환한다
+    @Transactional
+    public Long markAllAsRead(Long userId) {
+        notificationRepository.markAllAsRead(userId);
+        return getUnreadCount(userId);
+    }
+
     //소프트 삭제. 읽음 처리되지 않은 알림은 조회 자체가 안 되어 "존재하지 않음"과 동일하게 404로 수렴한다
     @Transactional
     public void deleteNotification(Long userId, Long notificationId) {

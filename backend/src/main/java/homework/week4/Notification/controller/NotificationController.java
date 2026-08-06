@@ -64,6 +64,18 @@ public class NotificationController {
                 .body(ApiResponse.of("알림 읽음 처리 완료", data));
     }
 
+    @PatchMapping("/read-all")
+    public ResponseEntity<ApiResponse<NotificationReadResponseDto>> readAllNotifications(
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        Long userId = userDetails.getUserId();
+        Long unreadCount = notificationService.markAllAsRead(userId);
+
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(ApiResponse.of("모두 읽음 처리 완료", new NotificationReadResponseDto(unreadCount)));
+    }
+
     @DeleteMapping("/{notification_id}")
     public ResponseEntity<ApiResponse<Void>> deleteNotification(
             @AuthenticationPrincipal CustomUserDetails userDetails,

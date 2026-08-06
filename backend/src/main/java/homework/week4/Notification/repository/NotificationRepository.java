@@ -5,6 +5,7 @@ import homework.week4.Notification.entity.NotificationType;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -63,4 +64,15 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 
     //삭제용 조회. 읽음 처리된 알림만 삭제 대상이므로 is_read = true 조건을 함께 건다 (미읽음이면 존재하지 않는 것과 동일하게 404)
     Optional<Notification> findByNotificationIdAndReceiverUserIdAndIsReadTrueAndDeletedAtIsNull(Long notificationId, Long receiverId);
+
+    //모두 읽음 처리. 안 읽은 알림 전체를 한 번에 갱신한다
+    @Modifying
+    @Query("""
+        UPDATE Notification n
+        SET n.isRead = true
+        WHERE n.receiver.userId = :userId
+        AND n.isRead = false
+        AND n.deletedAt IS NULL
+    """)
+    void markAllAsRead(@Param("userId") Long userId);
 }
