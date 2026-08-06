@@ -94,6 +94,9 @@ public class SecurityConfig {
         // 예비 요청(Preflight) 결과 캐시 시간 설정
         configuration.setMaxAge(3600L);
 
+        // SSE 인증 쿠키가 크로스 오리진 요청에도 실려가도록 허용 (EventSource의 withCredentials와 짝을 이룬다)
+        configuration.setAllowCredentials(true);
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
 
         // 모든 경로에 대해 위에서 정의한 CORS 정책 적용

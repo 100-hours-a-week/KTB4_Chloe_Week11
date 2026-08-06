@@ -2,6 +2,7 @@ package homework.week4.Security.JWT;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -12,10 +13,15 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Arrays;
 
 @Component //스프링 컨테이너에서 관리되게끔 해주는
 @RequiredArgsConstructor
 public class JWTFilter extends OncePerRequestFilter {
+
+    //SSE 구독(EventSource)은 커스텀 헤더를 보낼 수 없어, 로그인 시 발급되는 이 httpOnly 쿠키로만 인증한다.
+    //REST 요청은 기존과 동일하게 Authorization 헤더를 우선 사용하고, 헤더가 없을 때만 쿠키를 폴백으로 확인한다.
+    public static final String ACCESS_TOKEN_COOKIE_NAME = "accessToken";
 
     private final JwtTokenProvider tokenProvider;
 
@@ -40,6 +46,18 @@ public class JWTFilter extends OncePerRequestFilter {
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
             return bearerToken.substring(7);
         }
-        return null;
+        return resolveTokenFromCookie(request);
+    }
+
+    private String resolveTokenFromCookie(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) {
+            return null;
+        }
+        return Arrays.stream(cookies)
+                .filter(cookie -> ACCESS_TOKEN_COOKIE_NAME.equals(cookie.getName()))
+                .map(Cookie::getValue)
+                .findFirst()
+                .orElse(null);
     }
 }
