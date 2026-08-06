@@ -3,6 +3,7 @@ package homework.week4.Auth.service;
 
 import homework.week4.Auth.dto.LoginRequestDto;
 import homework.week4.Auth.dto.LoginResponseDto;
+import homework.week4.Notification.service.NotificationService;
 import homework.week4.Security.JWT.JwtToken;
 import homework.week4.Security.JWT.JwtTokenProvider;
 import homework.week4.User.entity.User;
@@ -44,6 +45,8 @@ public class AuthServiceTest {
     private AuthenticationManager authenticationManager;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private NotificationService notificationService;
 
     // JwtTokenProvider는 mock이 아니라 실제 객체를 사용 -> createToken/validateToken이 실제로 서명·만료를 구성하는지 검증하기 위함
     private JwtTokenProvider jwtTokenProvider;
@@ -53,7 +56,7 @@ public class AuthServiceTest {
     @BeforeEach
     void setUp() {
         jwtTokenProvider = new JwtTokenProvider(TEST_JWT_SECRET, userRepository);
-        authService = new AuthService(authenticationManager, jwtTokenProvider, userRepository);
+        authService = new AuthService(authenticationManager, jwtTokenProvider, userRepository, notificationService);
     }
 
     @Test
@@ -85,6 +88,9 @@ public class AuthServiceTest {
         given(userRepository.findByEmailAndIsMemberTrue("chloe@test.com"))
                 .willReturn(Optional.of(user));
 
+        given(notificationService.getUnreadCount(user.getUserId()))
+                .willReturn(5L);
+
         long beforeCreate = System.currentTimeMillis();
 
         //실행
@@ -93,6 +99,7 @@ public class AuthServiceTest {
         //검증 - JwtTokenProvider가 실제로 만든 토큰의 서명/만료/클레임을 확인
         JwtToken jwtToken = response.getJwtToken();
         assertThat(jwtToken.getGrantType()).isEqualTo("Bearer");
+        assertThat(response.getUnreadCount()).isEqualTo(5L);
 
         // 서명 검증: 실제 키로 서명되지 않았다면 validateToken/파싱 단계에서 실패한다
         assertThat(jwtTokenProvider.validateToken(jwtToken.getAccessToken())).isTrue();
