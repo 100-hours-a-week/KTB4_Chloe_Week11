@@ -97,9 +97,8 @@ public class Notification {
         this.createdAt = createdAt;
     }
 
-    //같은 좋아요 그룹에 새 행위자가 들어왔을 때 갱신
-    public void updateLikeGroup(User actor, LocalDateTime createdAt) {
-        this.actor = actor;
+    //같은 좋아요 그룹에 새 좋아요가 들어왔을 때 갱신. actor는 그룹이 처음 만들어질 때의 첫 행위자로 고정하고 바꾸지 않는다
+    public void updateLikeGroup(LocalDateTime createdAt) {
         this.likeGroupCount = this.likeGroupCount + 1;
         this.createdAt = createdAt;
     }

@@ -3,12 +3,14 @@ package homework.week4.Comment.service;
 import homework.week4.Comment.dto.*;
 import homework.week4.Comment.entity.Comment;
 import homework.week4.Comment.repository.CommentRepository;
+import homework.week4.Notification.event.CommentCreatedEvent;
 import homework.week4.Post.entity.Post;
 import homework.week4.Post.service.PostVerifyService;
 import homework.week4.User.entity.User;
 import homework.week4.User.service.UserService;
 import homework.week4.exception.ForbiddenException;
 import homework.week4.exception.NotFoundException;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import jakarta.validation.Valid;
@@ -29,6 +31,8 @@ public class CommentService {
     private final UserService userService;
     private final PostVerifyService postVerifyService;
 
+    private final ApplicationEventPublisher eventPublisher;
+
     //일반 댓글 생성
     @Transactional
     public CommentResponseDto createComment(Long userId, Long postId,CommentRequestDto request){
@@ -45,6 +49,17 @@ public class CommentService {
 
         commentRepository.save(comment);
         post.commentCountIncrement();
+
+        //본인 게시글에 본인이 댓글을 남긴 경우는 알림을 만들지 않는다
+        if (!user.getUserId().equals(post.getWriter().getUserId())) {
+            eventPublisher.publishEvent(new CommentCreatedEvent(
+                    post.getPostId(),
+                    comment.getCommentId(),
+                    user.getUserId(),
+                    post.getWriter().getUserId(),
+                    createdDateTime
+            ));
+        }
 
         return new CommentResponseDto(
                 comment.getCommentId(),
