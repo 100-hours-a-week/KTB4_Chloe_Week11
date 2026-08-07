@@ -9,6 +9,7 @@ import PostEditPage from './pages/PostEditPage/PostEditPage';
 import PostDetailPage from './pages/PostDetailPage/PostDetailPage';
 import ProfileEditPage from './pages/ProfileEditPage/ProfileEditPage';
 import PasswordEditPage from './pages/PasswordEditPage/PasswordEditPage';
+import NotificationPage from './pages/NotificationPage/NotificationPage';
 
 import { useAuth } from './context/AuthContext/useAuth';
 
@@ -41,6 +42,7 @@ function App() {
         <Route element={<AppLayout />}>
           <Route path="/" element={<Navigate to="/board" replace />} />
           <Route path="/board" element={<BoardPage />} />
+          <Route path="/notifications" element={<NotificationPage />} />
           <Route path="/posts/write" element={<PostWritePage />} />
           <Route path="/posts/:postId/edit" element={<PostEditPage />} />
           <Route path="/posts/:postId" element={<PostDetailPage />} />
