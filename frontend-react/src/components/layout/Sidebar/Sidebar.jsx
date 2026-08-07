@@ -1,8 +1,10 @@
 import { NavLink } from 'react-router-dom';
 import Header from '../Header/Header';
+import { useNotification } from '../../../context/NotificationContext/useNotification';
 import './Sidebar.css';
 
 function Sidebar({ collapsed, onCollapse }) {
+  const { unreadCount } = useNotification();
   return (
     <aside className={`sidebar${collapsed ? ' collapsed' : ''}`}>
       <div className="sidebar-top">
@@ -44,13 +46,17 @@ function Sidebar({ collapsed, onCollapse }) {
           내 활동
         </button>
 
-        <button className="sidebar-menu-item" type="button">
+        <NavLink
+          to="/notifications"
+          className={({ isActive }) => `sidebar-menu-item${isActive ? ' active' : ''}`}
+        >
           <svg className="menu-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M6 10a6 6 0 1 1 12 0c0 5 2 6 2 6H4s2-1 2-6z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
             <path d="M10 20a2 2 0 0 0 4 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
           </svg>
           알림
-        </button>
+          <span className="sidebar-menu-badge">{unreadCount}</span>
+        </NavLink>
       </nav>
 
       <Header />
