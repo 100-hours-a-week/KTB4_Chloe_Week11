@@ -64,6 +64,7 @@ export function NotificationProvider({ children }) {
       },
 
       onerror(err) {
+        // 401,403 에러일 경우에는 재시도 해도 의미가 없기 때문에 재시도 중단
         if (err instanceof FatalError) {
           throw err; // 다시 던져서 재시도를 중단시킨다
         }
