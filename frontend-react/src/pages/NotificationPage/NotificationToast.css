@@ -1,0 +1,67 @@
+.notif-toast-stack {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 950;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(320px, calc(100vw - 40px));
+}
+
+.notif-toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: var(--text);
+  color: var(--bg);
+  padding: 13px 14px;
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(45, 42, 38, 0.16);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 140%;
+  animation: notif-toast-in 0.2s ease;
+}
+
+.notif-toast-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+}
+
+.notif-toast.type-comment .notif-toast-icon {
+  background-color: var(--mint);
+}
+
+.notif-toast.type-blind .notif-toast-icon {
+  background-color: var(--amber);
+}
+
+/* 초과분 안내 토스트는 특정 알림 내용이 아니므로 중립색으로 구분한다 */
+.notif-toast.type-overflow {
+  background-color: var(--card-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.notif-toast.type-overflow .notif-toast-icon {
+  background-color: var(--bg);
+  color: var(--text-sub);
+}
+
+@keyframes notif-toast-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notif-toast {
+    animation: none;
+  }
+}

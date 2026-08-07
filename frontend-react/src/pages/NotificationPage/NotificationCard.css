@@ -1,0 +1,200 @@
+.notif-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.notif-row {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  background-color: var(--card-bg);
+  border-radius: 14px;
+  padding: 15px 16px;
+  border-left: 4px solid transparent;
+  box-shadow: 0 3px 12px rgba(45, 42, 38, 0.06);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.notif-row.has-delete {
+  padding-right: 44px;
+}
+
+.notif-row:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(45, 42, 38, 0.14);
+}
+
+.notif-row.unread {
+  border-left-color: var(--primary);
+  background-color: var(--primary-light);
+}
+
+/* 블라인드 카드는 확인 버튼 밖을 눌러도 반응하지 않으므로 클릭 가능한 것처럼 보이지 않게 한다 */
+.notif-row.no-click {
+  cursor: default;
+}
+
+.notif-row.no-click:hover {
+  transform: none;
+  box-shadow: 0 3px 12px rgba(45, 42, 38, 0.06);
+}
+
+.notif-row.just-read {
+  animation: notif-read-flash 0.5s ease;
+}
+
+@keyframes notif-read-flash {
+  0% { box-shadow: 0 0 0 3px var(--primary-light); }
+  100% { box-shadow: 0 3px 12px rgba(45, 42, 38, 0.06); }
+}
+
+.notif-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.notif-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+  background-color: var(--border);
+  overflow: hidden;
+}
+
+.notif-avatar.system {
+  border-radius: 12px;
+  background: var(--amber-light);
+  color: var(--amber);
+}
+
+.notif-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.notif-type-badge {
+  position: absolute;
+  bottom: -3px;
+  right: -3px;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--card-bg);
+  color: #ffffff;
+}
+
+.notif-type-badge.type-like { background-color: var(--primary); }
+.notif-type-badge.type-comment { background-color: var(--mint); }
+.notif-type-badge.type-blind { background-color: var(--amber); }
+
+.notif-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.notif-message {
+  font-size: 14px;
+  line-height: 145%;
+  color: var(--text);
+}
+
+.notif-message strong {
+  font-weight: 700;
+}
+
+.notif-post-ref {
+  font-size: 12.5px;
+  color: var(--text-sub);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.notif-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-sub);
+  margin-top: 2px;
+}
+
+.unread-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--primary);
+  flex-shrink: 0;
+}
+
+/* 블라인드 카드 전용 확인 버튼. 읽음 처리 전까지 항상 보이는 유일한 조작 대상이다 */
+.notif-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.btn-confirm {
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text-sub);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 100px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background-color 0.15s;
+}
+
+.btn-confirm:hover {
+  border-color: var(--amber);
+  color: var(--amber);
+  background-color: var(--amber-light);
+}
+
+.btn-delete {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-sub);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s, background-color 0.15s, color 0.15s;
+}
+
+.notif-row:hover .btn-delete,
+.btn-delete:focus-visible {
+  opacity: 1;
+}
+
+.btn-delete:hover {
+  background-color: var(--primary-light);
+  color: var(--primary-hover);
+}
