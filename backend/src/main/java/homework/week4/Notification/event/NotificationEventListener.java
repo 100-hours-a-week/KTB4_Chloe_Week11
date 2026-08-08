@@ -60,7 +60,7 @@ public class NotificationEventListener {
                 notification.getReceiver().getUserId(),
                 notification.getType().name().toLowerCase(),
                 notificationService.buildPushPayload(notification),
-                notification.getCreatedAt().toString()
+                notificationService.buildEventId(notification)
         );
     }
 }

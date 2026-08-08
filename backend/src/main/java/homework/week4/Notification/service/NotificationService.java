@@ -90,10 +90,15 @@ public class NotificationService {
         return notificationRepository.save(new Notification(receiver, post, occurredAt));
     }
 
-    //SSE 재연결 시 Last-Event-ID(알림 생성 일시)보다 최신인 미삭제 알림을 오래된 순으로 조회
+    //SSE 재연결 시 Last-Event-ID({알림 생성 일시}_{notificationId})보다 최신인 미삭제 알림을 오래된 순으로 조회
     @Transactional(readOnly = true)
-    public List<Notification> getMissedNotifications(Long userId, LocalDateTime after) {
-        return notificationRepository.findMissedNotifications(userId, after);
+    public List<Notification> getMissedNotifications(Long userId, LocalDateTime afterCreatedAt, Long afterNotificationId) {
+        return notificationRepository.findMissedNotifications(userId, afterCreatedAt, afterNotificationId);
+    }
+
+    //SSE id(Last-Event-ID)로 쓰는 값 구성. 알림 생성 일시만으로는 동일 시각에 생성된 두 알림을 구분할 수 없어 notificationId를 언더스코어로 이어붙인다
+    public String buildEventId(Notification notification) {
+        return notification.getCreatedAt().toString() + "_" + notification.getNotificationId();
     }
 
     //SSE로 내려보낼 이벤트 payload 구성. 알림 종류별 필드는 SSE 명세를 그대로 따른다

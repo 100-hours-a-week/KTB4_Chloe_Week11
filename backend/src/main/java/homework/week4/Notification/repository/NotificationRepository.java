@@ -28,17 +28,25 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
             LocalDateTime after
     );
 
-    //SSE 재연결 시 Last-Event-ID(알림 생성 일시)보다 최신인 미삭제 알림을 오래된 순으로 재조회. 별도 이벤트 로그 없이 notifications 테이블을 그대로 재사용한다
+    //SSE 재연결 시 Last-Event-ID({알림 생성 일시}_{notificationId})보다 최신인 미삭제 알림을 오래된 순으로 재조회. 별도 이벤트 로그 없이 notifications 테이블을 그대로 재사용한다.
+    //createdAt이 더 크거나, createdAt이 같으면서 notificationId가 더 큰 경우를 "놓친 알림"으로 본다
     @Query("""
         SELECT n
         FROM Notification n
         JOIN FETCH n.post
         WHERE n.receiver.userId = :userId
         AND n.deletedAt IS NULL
-        AND n.createdAt > :after
-        ORDER BY n.createdAt ASC
+        AND (
+            n.createdAt > :afterCreatedAt
+            OR (n.createdAt = :afterCreatedAt AND n.notificationId > :afterNotificationId)
+        )
+        ORDER BY n.createdAt ASC, n.notificationId ASC
     """)
-    List<Notification> findMissedNotifications(@Param("userId") Long userId, @Param("after") LocalDateTime after);
+    List<Notification> findMissedNotifications(
+            @Param("userId") Long userId,
+            @Param("afterCreatedAt") LocalDateTime afterCreatedAt,
+            @Param("afterNotificationId") Long afterNotificationId
+    );
 
     //알림 목록 커서 페이지네이션. createdAt DESC가 기본 정렬 기준이고, createdAt이 같을 때는 notificationId DESC로 순서를 확정하는 복합 커서를 적용한다
     @Query("""
