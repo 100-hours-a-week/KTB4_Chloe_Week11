@@ -13,15 +13,18 @@ import homework.week4.User.entity.User;
 import homework.week4.User.repository.UserRepository;
 import homework.week4.exception.InvalidRequestException;
 import homework.week4.exception.NotFoundException;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeParseException;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
@@ -36,6 +39,7 @@ public class NotificationService {
     private final UserRepository userRepository;
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
+    private final ObjectMapper objectMapper;
 
     //안 읽은 알림 개수 조회. 로그인 응답, SSE init/push, 읽음 처리 응답에서 재사용
     @Transactional(readOnly = true)
@@ -131,10 +135,12 @@ public class NotificationService {
             throw new InvalidRequestException("limit 값이 올바르지 않습니다.");
         }
 
-        LocalDateTime decodedCursor = decodeCursor(cursor);
+        CursorPosition decodedCursor = decodeCursor(cursor);
+        LocalDateTime cursorCreatedAt = decodedCursor != null ? decodedCursor.createdAt() : null;
+        Long cursorId = decodedCursor != null ? decodedCursor.notificationId() : null;
 
         Pageable pageable = PageRequest.of(0, limit + 1);
-        List<Notification> fetched = notificationRepository.findNotifications(userId, unreadOnly, decodedCursor, pageable);
+        List<Notification> fetched = notificationRepository.findNotifications(userId, unreadOnly, cursorCreatedAt, cursorId, pageable);
 
         boolean hasNext = fetched.size() > limit;
         List<Notification> pageItems = hasNext ? fetched.subList(0, limit) : fetched;
@@ -143,7 +149,9 @@ public class NotificationService {
                 .map(this::toListItemDto)
                 .toList();
 
-        String nextCursor = hasNext ? encodeCursor(pageItems.get(pageItems.size() - 1).getCreatedAt()) : null;
+        String nextCursor = hasNext
+                ? encodeCursor(pageItems.get(pageItems.size() - 1).getCreatedAt(), pageItems.get(pageItems.size() - 1).getNotificationId())
+                : null;
 
         return new NotificationListResponseDto(items, nextCursor);
     }
@@ -198,18 +206,35 @@ public class NotificationService {
         );
     }
 
-    private String encodeCursor(LocalDateTime createdAt) {
-        return Base64.getEncoder().encodeToString(createdAt.toString().getBytes(StandardCharsets.UTF_8));
+    //createdAt이 정렬 기본 기준, notificationId는 createdAt이 같을 때만 순서를 확정하는 보조 기준인 복합 커서
+    private record CursorPosition(LocalDateTime createdAt, Long notificationId) {
     }
 
-    private LocalDateTime decodeCursor(String cursor) {
+    private String encodeCursor(LocalDateTime createdAt, Long notificationId) {
+        try {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("createdAt", createdAt.toString());
+            payload.put("notificationId", notificationId);
+            String json = objectMapper.writeValueAsString(payload);
+            return Base64.getEncoder().encodeToString(json.getBytes(StandardCharsets.UTF_8));
+        } catch (JsonProcessingException e) {
+            throw new InvalidRequestException("cursor 형식이 올바르지 않습니다.");
+        }
+    }
+
+    private CursorPosition decodeCursor(String cursor) {
         if (cursor == null) {
             return null;
         }
         try {
             byte[] decoded = Base64.getDecoder().decode(cursor);
-            return LocalDateTime.parse(new String(decoded, StandardCharsets.UTF_8));
-        } catch (IllegalArgumentException | DateTimeParseException e) {
+            Map<String, Object> payload = objectMapper.readValue(decoded, new TypeReference<Map<String, Object>>() {
+            });
+            LocalDateTime createdAt = LocalDateTime.parse((String) payload.get("createdAt"));
+            Long notificationId = Long.valueOf(payload.get("notificationId").toString());
+            return new CursorPosition(createdAt, notificationId);
+        } catch (IOException | RuntimeException e) {
+            // Base64 디코딩 실패, JSON 파싱 실패, 필드 누락/타입 불일치, 날짜 형식 오류를 전부 400으로 통일한다
             throw new InvalidRequestException("cursor 형식이 올바르지 않습니다.");
         }
     }
