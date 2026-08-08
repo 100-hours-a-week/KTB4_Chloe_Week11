@@ -40,7 +40,7 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     """)
     List<Notification> findMissedNotifications(@Param("userId") Long userId, @Param("after") LocalDateTime after);
 
-    //알림 목록 커서 페이지네이션. createdAt DESC, unreadOnly 필터, opaque 커서(createdAt) 적용
+    //알림 목록 커서 페이지네이션. createdAt DESC가 기본 정렬 기준이고, createdAt이 같을 때는 notificationId DESC로 순서를 확정하는 복합 커서를 적용한다
     @Query("""
         SELECT n
         FROM Notification n
@@ -49,13 +49,18 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
         WHERE n.receiver.userId = :userId
         AND n.deletedAt IS NULL
         AND (:unreadOnly = false OR n.isRead = false)
-        AND (:cursor IS NULL OR n.createdAt < :cursor)
-        ORDER BY n.createdAt DESC
+        AND (
+            :cursorCreatedAt IS NULL
+            OR n.createdAt < :cursorCreatedAt
+            OR (n.createdAt = :cursorCreatedAt AND n.notificationId < :cursorId)
+        )
+        ORDER BY n.createdAt DESC, n.notificationId DESC
     """)
     List<Notification> findNotifications(
             @Param("userId") Long userId,
             @Param("unreadOnly") boolean unreadOnly,
-            @Param("cursor") LocalDateTime cursor,
+            @Param("cursorCreatedAt") LocalDateTime cursorCreatedAt,
+            @Param("cursorId") Long cursorId,
             Pageable pageable
     );
 
