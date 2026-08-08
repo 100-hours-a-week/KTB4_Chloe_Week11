@@ -114,23 +114,31 @@ public class NotificationController {
         return emitter;
     }
 
-    //재연결: 클라이언트가 보낸 Last-Event-ID(알림 생성 일시)보다 최신인 알림을 놓치지 않고 다시 보내준다
+    //재연결: 클라이언트가 보낸 Last-Event-ID({알림 생성 일시}_{notificationId})보다 최신인 알림을 놓치지 않고 다시 보내준다
     private void resendMissedNotifications(Long userId, String lastEventId) {
-        LocalDateTime after;
-        try {
-            after = LocalDateTime.parse(lastEventId);
-        } catch (DateTimeParseException e) {
+        String[] parts = lastEventId.split("_", 2);
+        if (parts.length != 2) {
             log.warn("잘못된 Last-Event-ID 형식이라 재전송을 건너뜁니다. userId={}, lastEventId={}", userId, lastEventId);
             return;
         }
 
-        List<Notification> missed = notificationService.getMissedNotifications(userId, after);
+        LocalDateTime afterCreatedAt;
+        Long afterNotificationId;
+        try {
+            afterCreatedAt = LocalDateTime.parse(parts[0]);
+            afterNotificationId = Long.valueOf(parts[1]);
+        } catch (DateTimeParseException | NumberFormatException e) {
+            log.warn("잘못된 Last-Event-ID 형식이라 재전송을 건너뜁니다. userId={}, lastEventId={}", userId, lastEventId);
+            return;
+        }
+
+        List<Notification> missed = notificationService.getMissedNotifications(userId, afterCreatedAt, afterNotificationId);
         for (Notification notification : missed) {
             sseEmitterRegistry.send(
                     userId,
                     notification.getType().name().toLowerCase(),
                     notificationService.buildPushPayload(notification),
-                    notification.getCreatedAt().toString()
+                    notificationService.buildEventId(notification)
             );
         }
     }

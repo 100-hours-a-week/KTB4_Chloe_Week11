@@ -35,7 +35,7 @@ public class SseEmitterRegistry {
         return emitter;
     }
 
-    //해당 사용자가 연결 중이면 이벤트를 보낸다. eventId는 재연결 시 Last-Event-ID로 쓰이는 알림 생성 일시 문자열이며, 없는 이벤트(init 등)는 null로 둔다
+    //해당 사용자가 연결 중이면 이벤트를 보낸다. eventId는 재연결 시 Last-Event-ID로 쓰이는 값({알림 생성 일시}_{notificationId})이며, 없는 이벤트(init 등)는 null로 둔다
     public void send(Long userId, String eventName, Object data, String eventId) {
         SseEmitter emitter = emitters.get(userId);
         if (emitter == null) {
